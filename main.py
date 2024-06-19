@@ -1,6 +1,10 @@
 import base64
+import itertools
 import json
 import logging
+import re
+import shlex
+from pypinyin import pinyin, Style
 from fastapi import FastAPI, HTTPException, Request
 from aiogram import Bot
 from aiogram.utils import formatting
@@ -93,11 +97,55 @@ async def process(request: Request):
         try:
             if data['message']['from']['id'] != chat_id:
                 raise Exception("invalid from chat id")
-
+            
             logging.info("processing: " + data['message']['text'])
+            user_id = data['message']['from']['id']
 
-        
-            await bot.send_message(chat_id, "recved: " + data['message']['text'])
+            msg = shlex.split(data['message']['text'])
+            if msg[0] == "查询" or msg[0] == "拼音查询":
+                response = ""
+                re_expr = msg[1]
+                results = []
+
+                with open("/code/nju.txt", "r") as f:
+                    all_nju = f.readlines()
+                counter = 0
+
+                for i in all_nju:
+                    counter += 1
+                    if msg[0] == "拼音查询" and counter % 10000 == 0:
+                        logging.info(await bot.send_message(user_id, f"拼音查询中, 请稍后: {counter} / {len(all_nju)}"))
+
+                    def str2py(s, style):
+                        if msg[0] != "拼音查询":
+                            return ""
+
+                        words = list(filter(lambda x: '集团' not in x and '大学' not in x and '学院' not in x and '用户' not in x and '未知' not in x, s.split(",")))
+
+                        result = []
+                        for w in words:
+                            py = pinyin(w, errors='ignore', style=style, heteronym=True)
+                            result.extend(list(itertools.product(*py)))
+                        output = [''.join(item) for item in result]
+
+                        return ',' + ','.join(output)
+
+                    if re.search(re_expr, i.strip() + str2py(i, Style.NORMAL) + str2py(i, Style.FIRST_LETTER)) is not None:
+                        results.append(i.strip())
+
+                if len(msg) > 2:
+                    page = int(msg[2]) - 1
+                else:
+                    page = 0
+
+                for i in range(page * 5, (page + 1) * 5):
+                    if i < len(results):
+                        response += f"({i + 1}). {results[i]}\n"
+                
+                await bot.send_message(user_id, f"搜索结果(第{page + 1}页,共计{len(results)}条): \n" + response)
+            else:
+                await bot.send_message(user_id, "未知指令: " + msg[0])
+
         except Exception as e:
             logging.exception(e)
             await bot.send_message(chat_id, "Error processing message: \n> " + formatting.Text(json.dumps(data, ensure_ascii=False)).as_markdown() + "\nException: \n> " + formatting.Text(str(e)).as_markdown(), parse_mode='MarkdownV2')

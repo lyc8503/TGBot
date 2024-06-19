@@ -111,10 +111,14 @@ async def process(request: Request):
                     all_nju = f.readlines()
                 counter = 0
 
+                temp_msg = None
+
                 for i in all_nju:
                     counter += 1
                     if msg[0] == "拼音查询" and counter % 10000 == 0:
-                        logging.info(await bot.send_message(user_id, f"拼音查询中, 请稍后: {counter} / {len(all_nju)}"))
+                        if temp_msg is not None:
+                            await bot.delete_message(user_id, temp_msg.message_id)
+                        temp_msg = await bot.send_message(user_id, f"拼音查询中, 请稍后: {counter} / {len(all_nju)}")
 
                     def str2py(s, style):
                         if msg[0] != "拼音查询":
@@ -132,6 +136,9 @@ async def process(request: Request):
 
                     if re.search(re_expr, i.strip() + str2py(i, Style.NORMAL) + str2py(i, Style.FIRST_LETTER)) is not None:
                         results.append(i.strip())
+                
+                if temp_msg is not None:
+                    await bot.delete_message(user_id, temp_msg.message_id)
 
                 if len(msg) > 2:
                     page = int(msg[2]) - 1

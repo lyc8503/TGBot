@@ -27,7 +27,7 @@ app = FastAPI()
 @app.api_route("/push", methods=['GET', 'POST'])
 async def push(request: Request):
     if request.method == 'POST':
-        data = await request.post()
+        data = await request.json()
     elif request.method == 'GET':
         data = request.query_params
 

@@ -5,7 +5,7 @@ import logging
 import re
 import shlex
 from pypinyin import pinyin, Style
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from aiogram import Bot
 from aiogram.utils import formatting
 from aiogram.types import BufferedInputFile
@@ -18,6 +18,7 @@ chat_id = int(os.environ['CHAT_ID'])
 push_key = os.environ['PUSH_KEY']
 self_url = os.environ['SELF_URL']
 secret_token = os.environ['SECRET_TOKEN']
+deployed_on_aliyun = False
 
 logging.basicConfig(
     level=logging.INFO,
@@ -67,34 +68,7 @@ async def webhook_init(request: Request):
         return await bot.set_webhook(url=f"{self_url}/tg/callback", secret_token=secret_token)
 
 
-@app.post("/tg/callback")
-async def callback(request: Request):
-    if request.headers.get('X-Telegram-Bot-Api-Secret-Token') != secret_token:
-        raise HTTPException(status_code=403, detail="invalid token")
-
-    data = await request.json()
-    logging.info(data)
-    
-    r = requests.post(f"{self_url}/tg/process", json=data, headers={
-        "X-Fc-Invocation-Type": "Async",
-        "Token": secret_token
-    })
-
-    logging.info(r.text)
-    if r.status_code != 202:
-        raise HTTPException(status_code=500, detail="async process failed")
-
-    return {"detail": "scheduled"}
-
-
-@app.post("/tg/process")
-async def process(request: Request):
-    if request.headers.get('Token') != secret_token:
-        raise HTTPException(status_code=403, detail="invalid token")
-    
-    data = await request.json()
-    logging.info(data)
-
+async def process(data):
     async with Bot(token=bot_token) as bot:
         try:
             if data['message']['from']['id'] != chat_id:
@@ -159,5 +133,38 @@ async def process(request: Request):
             logging.exception(e)
             await bot.send_message(chat_id, "Error processing message: \n> " + formatting.Text(json.dumps(data, ensure_ascii=False)).as_markdown() + "\nException: \n> " + formatting.Text(str(e)).as_markdown(), parse_mode='MarkdownV2')
             return "dropped"
-    
     return "ok"
+
+
+@app.post("/tg/callback")
+async def callback(request: Request, background_tasks: BackgroundTasks):
+    if request.headers.get('X-Telegram-Bot-Api-Secret-Token') != secret_token:
+        raise HTTPException(status_code=403, detail="invalid token")
+
+    data = await request.json()
+    logging.info(data)
+
+    if deployed_on_aliyun:
+        r = requests.post(f"{self_url}/tg/process", json=data, headers={
+            "X-Fc-Invocation-Type": "Async",
+            "Token": secret_token
+        })
+
+        logging.info(r.text)
+        if r.status_code != 202:
+            raise HTTPException(status_code=500, detail="async process failed")
+    else:
+        background_tasks.add_task(process, data)
+
+    return {"detail": "scheduled"}
+
+
+@app.post("/tg/process")
+async def process_req(request: Request):
+    if request.headers.get('Token') != secret_token:
+        raise HTTPException(status_code=403, detail="invalid token")
+    
+    data = await request.json()
+    logging.info(data)
+    
+    return await process(data)

@@ -14,7 +14,7 @@ import os
 
 
 bot_token = os.environ['BOT_TOKEN']
-chat_id = os.environ['CHAT_ID']
+chat_id = int(os.environ['CHAT_ID'])
 push_key = os.environ['PUSH_KEY']
 self_url = os.environ['SELF_URL']
 secret_token = os.environ['SECRET_TOKEN']

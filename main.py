@@ -10,12 +10,14 @@ from aiogram import Bot
 from aiogram.utils import formatting
 from aiogram.types import BufferedInputFile
 import requests
+import os
 
-bot_token = 'xx:xx'
-chat_id = 123456
-push_key = 'password'
-self_url = 'https://www.example.com'
-secret_token = 'a random token'
+
+bot_token = os.environ['BOT_TOKEN']
+chat_id = os.environ['CHAT_ID']
+push_key = os.environ['PUSH_KEY']
+self_url = os.environ['SELF_URL']
+secret_token = os.environ['SECRET_TOKEN']
 
 logging.basicConfig(
     level=logging.INFO,

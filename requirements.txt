@@ -2,3 +2,4 @@ uvicorn
 fastapi
 aiogram
 pypinyin
+requests

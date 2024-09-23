@@ -83,7 +83,7 @@ async def process(data):
                 re_expr = msg[1]
                 results = []
 
-                with open("/code/nju.txt", "r") as f:
+                with open("nju.txt", "r") as f:
                     all_nju = f.readlines()
                 counter = 0
 

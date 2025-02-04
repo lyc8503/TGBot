@@ -28,11 +28,18 @@ logging.basicConfig(
 app = FastAPI()
 
 @app.api_route("/push", methods=['GET', 'POST'])
+@app.api_route("/push/raw", methods=['GET', 'POST', 'PUT'])
 async def push(request: Request):
-    if request.method == 'POST':
-        data = await request.json()
-    elif request.method == 'GET':
-        data = request.query_params
+    if request.url.path == "/push/raw":
+        data = {
+            'key': request.query_params.get('key'),
+            'msg': b"Raw message handler received:\n" + await request.body(),
+        }
+    else:
+        if request.method == 'POST':
+            data = await request.json()
+        elif request.method == 'GET':
+            data = request.query_params
 
     if 'key' not in data or data['key'] != push_key:
         raise HTTPException(status_code=403, detail="invalid send key")
